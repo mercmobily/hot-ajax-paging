@@ -9,11 +9,8 @@ Element to control an iron-ajax element
 @demo demo/index.html
 
 TODO:
-* Make a sample pager (take it out of app, where it currently is)
-* Add optional items to go "N back" and "N forward", pre-prepared for the pager 
-* LATER Make plugin-like system (ala-validators) to allow different ways to extrapolate ranges
 * Document the thing
-* Write examples
+* Write demo. NOTE: will have to write a while Ajax server with sinon... ugh
 -->
 
 <dom-module id="hot-ajax-paging">
@@ -71,23 +68,28 @@ TODO:
         },
 
         maxShownPages: {
-          type: Number,
-          value: 10
+          type: String,
+          value: 5
         },
 
         totalPages: {
           type: Number,
-          notify: true
+          notify: true,
+          readOnly: true
         },
 
         totalRecords: {
           type: Number,
-          notify: true
+          notify: true,
+          readOnly: true
+
         },
 
         pagerData: {
           type: Object,
-          notify: true
+          notify: true,
+          readOnly: true
+
         },
 
         dpager: {
@@ -109,19 +111,21 @@ TODO:
         if (Number(this.perPage) == 0) return;
 
         // Calculate the number of pages
-        this.totalPages = Math.floor(Number(totalRecords) / Number(this.perPage));
+        this._setTotalPages(Math.floor(Number(totalRecords) / Number(this.perPage)));
 
         // Add an extra page for leftover results
-        if (Number(totalRecords) % Number(this.perPage)) this.totalPages++;
+        if (Number(totalRecords) % Number(this.perPage)) this._setTotalPages(this.totalPages + 1);
       },
 
-      _setTotalRecords: function(e) {
+      _changeTotalRecords: function(e) {
         if (e.detail != this.target.lastRequest) return;
 
-        if (this.from == '' || this.to == '') return;
+        if (this.from === '' || this.to === '') return;
+
+        // TODO: Make calculation of range pluggable?
 
         var range = e.detail.xhr.getResponseHeader('Content-Range');
-        if (range != '') this.totalRecords = Number(range.split('/')[1]);
+        if (range && range != '') this._setTotalRecords(Number(range.split('/')[1]));
       },
 
       _calculatePagerData: function() {
@@ -180,14 +184,28 @@ TODO:
           else d.push(el.page);
         }
 
-        var moreToLeft = Number(this.from) != 1;
-        var moreToRight = Number(this.to < maxShownPages)
+        var moreToLeft = left != 1;
+        var moreToRight = right < totalPages;
 
-        this.pagerData = {
+        debugger;
+        jumpPrev = null;
+        if (moreToLeft) {
+          var jumpPrev = left - maxShownPages;
+          jumpPrev = jumpPrev < 1 ? 1 : jumpPrev;
+        }
+        jumpNext = null;
+        if (moreToRight) {
+          var jumpNext = left + maxShownPages;
+          jumpNext = jumpNext > totalPages ? totalPages : jumpNext;
+        }
+
+        this._setPagerData({
           items: newItems,
 
           moreToLeft: moreToLeft,
           moreToRight: moreToRight,
+          jumpNext: jumpNext,
+          jumpPrev: jumpPrev,
           from: this.from,
           to: this.to,
           perPage: this.perPage,
@@ -195,7 +213,7 @@ TODO:
           maxShownPages: this.maxShownPages,
           totalPages: this.totalPages,
           totalRecords: this.totalRecords,
-        };
+        });
 
         this.dpager = d.join(' - ');
         console.dir(this.pagerData);
@@ -245,15 +263,19 @@ TODO:
         }
 
         // Both ranges need to be valid values
-        if (from == '' || to == '') return;
+        if (from === '' || to === '') return;
         console.log("IN _rangeChanged ENTERED!", from, to);
 
-        // Recalculate the page number
+        // Recalculate the page number. Note that it will need to
+        // set _preserveRange, or changing page will then affect this very
+        // piece of code...
         if (Number(this.perPage) != 0) {
           this._preserveRange = true;
           this.currentPage = Math.floor(Number(this.from) / Number(this.perPage)) + 1;
           this._preserveRange = false;
         }
+
+        // TODO: Make range calculation pluggable?
 
         // Reset the "range" header, which will set the range of the call
         // and re-run the request
@@ -275,7 +297,7 @@ TODO:
 
           if (!this.target) throw (new Error("Child element not found"));
 
-          this.listen(this.target, "response", "_setTotalRecords");
+          this.listen(this.target, "response", "_changeTotalRecords");
 
           if (this._delayedRangeChanged) {
             console.log("Running delayed _rateChanged")
@@ -288,7 +310,7 @@ TODO:
       detached: function() {
 
         this.async(function() {
-          this.unlisten(this.target, "response", "_setTotalRecords");
+          this.unlisten(this.target, "response", "_changeTotalRecords");
         });
       },
 
