@@ -298,12 +298,18 @@ It's possible to specify the target ID directly and have the target input field 
         // Adjusts the range to the new values,
         // Unless _preserveRange is on, which means that even though the page is changing,
         // the range stays the same.
-        // This happens for example when perPage is changed -- so you are on a different page.
+        // This happens for example when perPage is changed -- so you are on a different page
+        // keeping the same range
         if (this._preserveRange) return;
 
         var newPage = Number(this.currentPage);
         if (newPage < 0) newPage = 0;
+
+        // On/off switch of preserveRange will endure that AJAX calls only
+        // happen once (otherwise, it will happen twice, once for `from` and ince for `to`)
+        this._preserveRange = true;
         this.from = (newPage - 1) * this.perPage;
+        this._preserveRange = false;
         this.to = Number(this.from) + Number(this.perPage) - 1;
       },
 
@@ -321,6 +327,11 @@ It's possible to specify the target ID directly and have the target input field 
       _rangeChanged: function(from, to) {
 
         console.log("IN _rangeChanged!", from, to);
+
+        // Range is being preserved. One of the inner
+        // methods is changing the range but doesn't (yet?) want to
+        // trigger any page recalculation nor AJAX
+        if (this._preserveRange) return;
 
         // If there is no target, it means that the child is not yet ready()ed.
         // Set the _delayedRangeChanged flag, which will be picked up by `attached()`
