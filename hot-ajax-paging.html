@@ -389,10 +389,7 @@ It's possible to specify the target ID directly and have the target input field 
       },
 
       detached: function() {
-
-        this.async(function() {
-          this.unlisten(this.target, "response", "_changeTotalRecords");
-        });
+        this.unlisten(this.target, "response", "_changeTotalRecords");
       },
 
       _catcher: function(e) {},
