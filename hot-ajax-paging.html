@@ -196,7 +196,7 @@ It's possible to specify the target ID directly and have the target input field 
       },
 
       _calculatePagerData: function() {
-        console.log("CALCULATING PAGER DATA");
+        //console.log("CALCULATING PAGER DATA");
 
         var newItems = [];
         var el;
@@ -326,7 +326,7 @@ It's possible to specify the target ID directly and have the target input field 
       // whenever appropriate, an AJAX call
       _rangeChanged: function(from, to) {
 
-        console.log("IN _rangeChanged!", from, to);
+        //console.log("IN _rangeChanged!", from, to);
 
         // Range is being preserved. One of the inner
         // methods is changing the range but doesn't (yet?) want to
@@ -343,7 +343,7 @@ It's possible to specify the target ID directly and have the target input field 
 
         // Both ranges need to be valid values
         if (from === '' || to === '') return;
-        console.log("IN _rangeChanged ENTERED!", from, to);
+        //console.log("IN _rangeChanged ENTERED!", from, to);
 
         // Recalculate the page number. Note that it will need to
         // set _preserveRange, or changing page will then affect this very
@@ -360,7 +360,7 @@ It's possible to specify the target ID directly and have the target input field 
         // and re-run the request
         delete this.target.headers.range;
         this.target.headers.range = "items=" + this.from + '-' + this.to;
-        console.log("AJAX CALL!!!")
+        //console.log("AJAX CALL!!!")
         this.target.generateRequest();
       },
 
@@ -379,7 +379,7 @@ It's possible to specify the target ID directly and have the target input field 
           this.listen(this.target, "response", "_changeTotalRecords");
 
           if (this._delayedRangeChanged) {
-            console.log("Running delayed _rateChanged")
+            //console.log("Running delayed _rateChanged")
             this._rangeChanged(this.from, this.to);
             // It will only happen once
             this._delayedRangeChanged = false;
