@@ -2,6 +2,9 @@
 Element to control an iron-ajax element
 
 This element adds paging capabilities to iron-ajax. It also provides _all_ the information a pager element might possibly need to draw itself.
+
+Use this [simple pager](https://github.com/mercmobily/hot-pager) as a starting point for your pagers (or just use it straight if it looks OK for your site). 
+
 To use it, simply wrap an iron-ajax widget with it:
 
     <hot-ajax-paging per-page="10" current-page="{{currentPage}}" pager-data="{{pagerData}}">
