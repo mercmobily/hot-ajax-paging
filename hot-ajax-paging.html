@@ -354,14 +354,15 @@ It's possible to specify the target ID directly and have the target input field 
           this._preserveRange = false;
         }
 
-        // TODO: Make range calculation pluggable?
-
         // Reset the "range" header, which will set the range of the call
         // and re-run the request
         delete this.target.headers.range;
         this.target.headers.range = "items=" + this.from + '-' + this.to;
+
         //console.log("AJAX CALL!!!")
-        this.target.generateRequest();
+        if( this.target.url ){
+          this.target.generateRequest();
+        }
       },
 
       attached: function() {
