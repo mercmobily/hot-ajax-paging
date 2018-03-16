@@ -1,5 +1,4 @@
 <link rel="import" href="../polymer/polymer.html">
-<link rel="import" href="../hot-deep-target-behavior/hot-deep-target-behavior.html">
 
 <!--
 `hot-ajax-paging`
@@ -36,7 +35,6 @@ The (notifying) pagerData variable is updated every time anything about the page
 * `totalPages` - The total number of pages
 * `totalRecords` - The total number of records
 
-
 ## Setting properties
 
 The pager needs to be set up.
@@ -46,16 +44,6 @@ The pager needs to be set up.
 * `perPage` - How many records are shown in each page. Changing this value will _not_ fire up a new AJAX request. However, `currentPage` will likely change without firing up an AJAX request (since changing perPage will likely mean that you are looking at a different page, but the data is already loaded). Note that only `from` is taken into consideration. So, if you make perPage smaller, you will end up looking at a different page, showing too many records.
 * `currentPage` - The current page. Changing this value will fire up a new AJAX request.
 
-## Custom target
-
-## Using a custom target ID
-
-It's possible to specify the target ID directly and have the target input field further in the DOM, rather than being `<hot-ajax-paging>`'s first child:
-
-    <hot-ajax-paging target-id="aj" per-page="10" current-page="{{currentPage}}" pager-data="{{pagerData}}">
-      <div></div>
-      <iron-ajax id="aj" auto url="/stores/polymer" handle-as="json" last-response="{{data}}"></iron-ajax>
-    </hot-ajax-paging>
 
 @demo demo/index.html
 -->
@@ -70,331 +58,341 @@ It's possible to specify the target ID directly and have the target input field 
   </template>
 
   <script>
-    Polymer({
+/* global Polymer,customElements,CustomEvent,Node */
+class HotAjaxPaging extends Polymer.Element {
+  static get is () { return 'hot-ajax-paging' }
 
-      is: 'hot-ajax-paging',
+  static get properties () {
+    return {
 
-      properties: {
+      /**
+       * The iron-ajax element being targeted (for setting request headers according to
+       * the required range, and monitor results to determine the size of the pager
+       */
+      request: Object,
 
-        /**
-         * If specified, the widget will not target its first child in the light DOM, but
-         * the element with id `targetId`
-         */
-        targetId: String,
+      /**
+       * In terms of data range, the first record fetched in the range. 0 is the first one
+       */
+      from: {
+        type: String,
+        notify: true
+      },
 
-        /**
-         * The iron-ajax element being targeted (for setting request headers according to
-         * the required range, and monitor results to determine the size of the pager
-         */
-        target: Object,
+      /**
+       * In terms of data range, the last record fetched in the range.
+       *
+       */
+      to: {
+        type: String,
+        notify: true
+      },
 
-        /**
-         * In terms of data range, the first record fetched in the range. 0 is the first one
-         */
-        from: {
-          type: String,
-          notify: true,
-        },
+      /**
+       * The number of records that will logicsally fit in a page
+       */
+      perPage: {
+        type: String,
+        notify: true
+      },
 
-        /**
-         * In terms of data range, the last record fetched in the range.
-         *
-         */
-        to: {
-          type: String,
-          notify: true,
-        },
+      /**
+       * The current page.
+       */
+      currentPage: {
+        type: String,
+        notify: true
+      },
 
-        /**
-         * The number of records that will logicsally fit in a page
-         */
-        perPage: {
-          type: String,
-          notify: true
-        },
+      /**
+       * The size of the pager
+       */
+      maxShownPages: {
+        type: String,
+        value: 5
+      },
 
-        /**
-         * The current page.
-         */
-        currentPage: {
-          type: String,
-          notify: true
-        },
+      /**
+       * The total number of pages returned by the iron-ajax request
+       */
+      totalPages: {
+        type: Number,
+        notify: true,
+        readOnly: true
+      },
 
-        /**
-         * The size of the pager
-         */
-        maxShownPages: {
-          type: String,
-          value: 5
-        },
-
-        /**
-         * The total number of pages returned by the iron-ajax request
-         */
-        totalPages: {
-          type: Number,
-          notify: true,
-          readOnly: true
-        },
-
-        /**
-         * The total number of records returned by the iron-ajax request
-         *
-         */
-        totalRecords: {
-          type: Number,
-          notify: true,
-          readOnly: true
-
-        },
-
-        /**
-         * The pager data. This can be used by a pager widget (for example
-         * hot-pager) to display a pager
-         */
-        pagerData: {
-          type: Object,
-          notify: true,
-        },
-
-        dpager: {
-          type: String,
-          notify: true
-        },
+      /**
+       * The total number of records returned by the iron-ajax request
+       *
+       */
+      totalRecords: {
+        type: Number,
+        notify: true,
+        readOnly: true
 
       },
 
-      observers: [
-        '_rangeChanged(from,to)',
-        '_currentPageChanged(currentPage)',
-        '_perPageChanged(perPage)',
-        '_calculatePagerData(currentPage,maxShownPages,totalPages)',
-        '_calculateTotalPages(totalRecords,perPage)'
-      ],
-
-      _calculateTotalPages: function(totalRecords, perPage) {
-        if (Number(this.perPage) == 0) return;
-
-        // Calculate the number of pages
-        this._setTotalPages(Math.floor(Number(totalRecords) / Number(this.perPage)));
-
-        // Add an extra page for leftover results
-        if (Number(totalRecords) % Number(this.perPage)) this._setTotalPages(this.totalPages + 1);
+      /**
+       * The pager data. This can be used by a pager widget (for example
+       * hot-pager) to display a pager
+       */
+      pagerData: {
+        type: Object,
+        notify: true
       },
 
-      _changeTotalRecords: function(e) {
-        if (e.detail != this.target.lastRequest) return;
+      dpager: {
+        type: String,
+        notify: true
+      }
+    }
+  }
 
-        if (this.from === '' || this.to === '') return;
+  static get observers () {
+    return [
+      '_rangeChanged(from,to)',
+      '_currentPageChanged(currentPage)',
+      '_perPageChanged(perPage)',
+      '_calculatePagerData(currentPage,maxShownPages,totalPages)',
+      '_calculateTotalPages(totalRecords,perPage)'
+    ]
+  }
 
-        // TODO: Make calculation of range pluggable?
+  _calculateTotalPages (totalRecords, perPage) {
+    if (Number(this.perPage) === 0) return
 
-        var range = e.detail.xhr.getResponseHeader('Content-Range');
-        if (range && range != '') this._setTotalRecords(Number(range.split('/')[1]));
+    // Calculate the number of pages
+    this._setTotalPages(Math.floor(Number(totalRecords) / Number(this.perPage)))
 
-      },
+    // Add an extra page for leftover results
+    if (Number(totalRecords) % Number(this.perPage)) this._setTotalPages(this.totalPages + 1)
+  }
 
-      _calculatePagerData: function() {
-        //console.log("CALCULATING PAGER DATA");
+  _changeTotalRecords (e) {
+    if (e.detail !== this.request.lastRequest) return
 
-        var newItems = [];
-        var el;
-        var left, right;
+    if (this.from === '' || this.to === '') return
 
-        var currentPage = Number(this.currentPage);
-        var totalPages = Number(this.totalPages);
-        var maxShownPages = Number(this.maxShownPages);
+    // TODO: Make calculation of range pluggable?
 
-        // Handy numbers, usefull later
-        var half = Math.floor(maxShownPages / 2);
+    var range = e.detail.xhr.getResponseHeader('Content-Range')
+    if (range && range !== '') this._setTotalRecords(Number(range.split('/')[1]))
+  }
 
-        // Results are less than pagerMaxSquare: there will be no
-        // centering, but simply all of them shown.
-        // Thanks to this check, the following cases are _guarantee_ to be either
-        // "left is out of range" or "right is out of range", and never both
-        if (totalPages <= maxShownPages) {
+  _calculatePagerData (currentPage, maxShownPages, totalPages) {
+    // console.log("CALCULATING PAGER DATA");
 
-          left = 1;
-          right = totalPages;
+    var newItems = []
+    var el
+    var left, right
+    var jumpPrev, jumpNext
 
-        } else {
+    currentPage = Number(currentPage)
+    totalPages = Number(totalPages)
+    maxShownPages = Number(maxShownPages)
 
-          // Prentend that the world is perfect, and the result are neatly
-          // surrounded
-          left = currentPage - half;
-          right = left + maxShownPages - 1;
+    // Handy numbers, usefull later
+    var half = Math.floor(maxShownPages / 2)
 
-          // If left is out of range, set it to 0 and re-adjust right
-          if (left < 1) {
-            left = 1;
-            right = left + maxShownPages - 1;
+    // Results are less than pagerMaxSquare: there will be no
+    // centering, but simply all of them shown.
+    // Thanks to this check, the following cases are _guarantee_ to be either
+    // "left is out of range" or "right is out of range", and never both
+    if (totalPages <= maxShownPages) {
+      left = 1
+      right = totalPages
+    } else {
+      // Prentend that the world is perfect, and the result are neatly
+      // surrounded
+      left = currentPage - half
+      right = left + maxShownPages - 1
 
-            // If right is out of range, set it to totalPages and readjust left
-          } else if (right > totalPages) {
-            right = totalPages;
-            left = totalPages - maxShownPages + 1;
-          }
-        }
+      // If left is out of range, set it to 0 and re-adjust right
+      if (left < 1) {
+        left = 1
+        right = left + maxShownPages - 1
 
-        var d = [];
-        // Make up the pager data, based on "left" and "right"
-        for (var i = left; i <= right; i++) {
-          el = {};
-          if (i == this.currentPage) el.current = true;
-          el.page = i;
-          newItems.push(el);
+        // If right is out of range, set it to totalPages and readjust left
+      } else if (right > totalPages) {
+        right = totalPages
+        left = totalPages - maxShownPages + 1
+      }
+    }
 
-          // This is to create dpager, which can be used to display a
-          // text-only version of the pager for debugging purposes
-          if (el.current) d.push("*" + el.page + "*")
-          else d.push(el.page);
-        }
+    var d = []
+    // Make up the pager data, based on "left" and "right"
+    for (var i = left; i <= right; i++) {
+      el = {}
+      if (i === this.currentPage) el.current = true
+      el.page = i
+      newItems.push(el)
 
-        var moreToLeft = left != 1;
-        var moreToRight = right < totalPages;
+      // This is to create dpager, which can be used to display a
+      // text-only version of the pager for debugging purposes
+      if (el.current) d.push('*' + el.page + '*')
+      else d.push(el.page)
+    }
 
-        jumpPrev = null;
-        if (moreToLeft) {
-          var jumpPrev = right - maxShownPages;
-          jumpPrev = jumpPrev < 1 ? 1 : jumpPrev;
-        }
-        jumpNext = null;
-        if (moreToRight) {
-          var jumpNext = left + maxShownPages;
-          jumpNext = jumpNext > totalPages ? totalPages : jumpNext;
-        }
+    var moreToLeft = left !== 1
+    var moreToRight = right < totalPages
 
-        this.pagerData = {
-          items: newItems,
+    jumpPrev = null
+    if (moreToLeft) {
+      jumpPrev = right - maxShownPages
+      jumpPrev = jumpPrev < 1 ? 1 : jumpPrev
+    }
+    jumpNext = null
+    if (moreToRight) {
+      jumpNext = left + maxShownPages
+      jumpNext = jumpNext > totalPages ? totalPages : jumpNext
+    }
 
-          moreToLeft: moreToLeft,
-          moreToRight: moreToRight,
-          jumpNext: jumpNext,
-          jumpPrev: jumpPrev,
-          left: left,
-          right: right,
-          from: this.from,
-          to: this.to,
-          perPage: this.perPage,
-          currentPage: this.currentPage,
-          maxShownPages: this.maxShownPages,
-          totalPages: this.totalPages,
-          totalRecords: this.totalRecords,
-        };
+    this.pagerData = {
+      items: newItems,
 
-        this.dpager = d.join(' - ');
-        //console.dir(this.pagerData);
-      },
+      moreToLeft: moreToLeft,
+      moreToRight: moreToRight,
+      jumpNext: jumpNext,
+      jumpPrev: jumpPrev,
+      left: left,
+      right: right,
+      from: this.from,
+      to: this.to,
+      perPage: this.perPage,
+      currentPage: this.currentPage,
+      maxShownPages: this.maxShownPages,
+      totalPages: this.totalPages,
+      totalRecords: this.totalRecords
+    }
 
-      //totalPages
-      //currentPage
-      //maxShownPages
+    this.dpager = d.join(' - ')
+    // console.dir(this.pagerData);
+  }
 
-      _currentPageChanged: function() {
-        if (Number(this.currentPage) == 0) return;
-        if (Number(this.perPage) == 0) return;
+  // totalPages
+  // currentPage
+  // maxShownPages
 
-        // Adjusts the range to the new values,
-        // Unless _preserveRange is on, which means that even though the page is changing,
-        // the range stays the same.
-        // This happens for example when perPage is changed -- so you are on a different page
-        // keeping the same range
-        if (this._preserveRange) return;
+  _currentPageChanged () {
+    if (Number(this.currentPage) === 0) return
+    if (Number(this.perPage) === 0) return
 
-        var newPage = Number(this.currentPage);
-        if (newPage < 0) newPage = 0;
+    // Adjusts the range to the new values,
+    // Unless _preserveRange is on, which means that even though the page is changing,
+    // the range stays the same.
+    // This happens for example when perPage is changed -- so you are on a different page
+    // keeping the same range
+    if (this._preserveRange) return
 
-        // On/off switch of preserveRange will endure that AJAX calls only
-        // happen once (otherwise, it will happen twice, once for `from` and ince for `to`)
-        this._preserveRange = true;
-        this.from = (newPage - 1) * this.perPage;
-        this._preserveRange = false;
-        this.to = Number(this.from) + Number(this.perPage) - 1;
-      },
+    var newPage = Number(this.currentPage)
+    if (newPage < 0) newPage = 0
 
-      _perPageChanged: function(perpage) {
-        if (Number(this.perPage) == 0) return;
+    // On/off switch of preserveRange will endure that AJAX calls only
+    // happen once (otherwise, it will happen twice, once for `from` and ince for `to`)
+    this._preserveRange = true
+    this.from = (newPage - 1) * this.perPage
+    this._preserveRange = false
+    this.to = Number(this.from) + Number(this.perPage) - 1
+  }
 
-        // The page changes, but the range won't.
-        this._preserveRange = true;
-        this.currentPage = Math.floor(Number(this.from) / Number(this.perPage)) + 1;
-        this._preserveRange = false;
-      },
+  _perPageChanged (perpage) {
+    if (Number(this.perPage) === 0) return
 
-      // This is the only hook that will actually trigger,
-      // whenever appropriate, an AJAX call
-      _rangeChanged: function(from, to) {
+    // The page changes, but the range won't.
+    this._preserveRange = true
+    this.currentPage = (Math.floor(Number(this.from) || 0) / Number(this.perPage)) + 1
+    this._preserveRange = false
+  }
 
-        //console.log("IN _rangeChanged!", from, to);
+  // This is the only hook that will actually trigger,
+  // whenever appropriate, an AJAX call
+  _rangeChanged (from, to) {
+    // console.log("IN _rangeChanged!", from, to);
 
-        // Range is being preserved. One of the inner
-        // methods is changing the range but doesn't (yet?) want to
-        // trigger any page recalculation nor AJAX
-        if (this._preserveRange) return;
+    // Range is being preserved. One of the inner
+    // methods is changing the range but doesn't (yet?) want to
+    // trigger any page recalculation nor AJAX
+    if (this._preserveRange) return
 
-        // If there is no target, it means that the child is not yet ready()ed.
-        // Set the _delayedRangeChanged flag, which will be picked up by `attached()`
-        // which in turn will run `_rangeChanged()` manually
-        if (!this.target) {
-          this._delayedRangeChanged = true;
-          return;
-        }
+    // If there is no request, it means that the child is not yet ready()ed.
+    // Set the _delayedRangeChanged flag, which will be picked up by `attached()`
+    // which in turn will run `_rangeChanged()` manually
+    if (!this.request) {
+      this._delayedRangeChanged = true
+      return
+    }
 
-        // Both ranges need to be valid values
-        if (from === '' || to === '') return;
-        //console.log("IN _rangeChanged ENTERED!", from, to);
+    if (typeof this.to === 'undefined') {
+      this.to = Number(this.from) + Number(this.perPage) - 1
+    }
 
-        // Recalculate the page number. Note that it will need to
-        // set _preserveRange, or changing page will then affect this very
-        // piece of code...
-        if (Number(this.perPage) != 0) {
-          this._preserveRange = true;
-          this.currentPage = Math.floor(Number(this.from) / Number(this.perPage)) + 1;
-          this._preserveRange = false;
-        }
+    // Both ranges need to be valid values
+    if (from === '' || to === '') return
+    // console.log("IN _rangeChanged ENTERED!", from, to);
 
-        // Reset the "range" header, which will set the range of the call
-        // and re-run the request
-        delete this.target.headers.range;
-        this.target.headers.range = "items=" + this.from + '-' + this.to;
+    // Recalculate the page number. Note that it will need to
+    // set _preserveRange, or changing page will then affect this very
+    // piece of code...
+    if (Number(this.perPage) !== 0) {
+      this._preserveRange = true
+      this.currentPage = Math.floor(Number(this.from) / Number(this.perPage)) + 1
+      this._preserveRange = false
+    }
 
-        //console.log("AJAX CALL!!!")
-        if( this.target.url ){
-          this.target.generateRequest();
-        }
-      },
+    // Reset the "range" header, which will set the range of the call
+    // and re-run the request
+    delete this.request.headers.range
+    this.request.headers.range = 'items=' + this.from + '-' + this.to
 
-      attached: function() {
+    // console.log("AJAX CALL!!!")
+    this.request.generateRequest()
+    if (this.request.url) {
+    }
+  }
 
-        this.async(function() {
+  _proxyAjaxEvents (e) {
+    this.dispatchEvent(new CustomEvent(e.type, { bubbles: false, composed: true }))
+  }
 
-          if (this.targetId) {
-            this.target = this.queryEffectiveChildrenDeep("#" + this.targetId, true, 'hot-ajax-paging');
-          } else {
-            this.target = this.getEffectiveChildren()[0];
-          }
+  constructor () {
+    super()
+    this._changeTotalRecordsBound = this._changeTotalRecords.bind(this)
+    this._proxyAjaxEventsBound = this._proxyAjaxEvents.bind(this)
+  }
 
-          if (!this.target) throw (new Error("Child element not found"));
+  connectedCallback () {
+    super.connectedCallback()
 
-          this.listen(this.target, "response", "_changeTotalRecords");
+    this.request = Polymer.FlattenedNodesObserver.getFlattenedNodes(this).find(el => el.nodeType === Node.ELEMENT_NODE)
+    if (!this.request) throw (new Error('Child element not found'))
 
-          if (this._delayedRangeChanged) {
-            //console.log("Running delayed _rateChanged")
-            this._rangeChanged(this.from, this.to);
-            // It will only happen once
-            this._delayedRangeChanged = false;
-          }
+    this.request.addEventListener('response', this._changeTotalRecordsBound)
 
-        });
-      },
+    // Add events to be proxied
+    this.request.addEventListener('request', this._proxyAjaxEventsBound)
+    this.request.addEventListener('response', this._proxyAjaxEventsBound)
+    this.request.addEventListener('error', this._proxyAjaxEventsBound)
 
-      detached: function() {
-        this.unlisten(this.target, "response", "_changeTotalRecords");
-      },
+    if (this._delayedRangeChanged) {
+      // console.log("Running delayed _rateChanged")
+      this._rangeChanged(this.from, this.to)
+      // It will only happen once
+      this._delayedRangeChanged = false
+    }
+  }
 
-      _catcher: function(e) {},
+  disconnectedCallback () {
+    this.request.removeEventListener('response', this._changeTotalRecordsBound)
 
-    });
+    // Remove events to be proxied
+    this.request.removeEventListener('request', this._proxyAjaxEventsBound)
+    this.request.removeEventListener('response', this._proxyAjaxEventsBound)
+    this.request.removeEventListener('error', this._proxyAjaxEventsBound)
+  }
+
+  _catcher (e) {}
+}
+customElements.define(HotAjaxPaging.is, HotAjaxPaging)
+
   </script>
 </dom-module>
