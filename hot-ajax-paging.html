@@ -304,6 +304,10 @@ class HotAjaxPaging extends Polymer.Element {
     this._preserveRange = false
   }
 
+  _reload () {
+    this.request.generateRequest()
+  }
+
   // This is the only hook that will actually trigger,
   // whenever appropriate, an AJAX call
   _rangeChanged (from, to) {
