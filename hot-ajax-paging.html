@@ -304,7 +304,8 @@ class HotAjaxPaging extends Polymer.Element {
     this._preserveRange = false
   }
 
-  _reload () {
+  // This will make hot-network happy
+  reload () {
     this.request.generateRequest()
   }
 
