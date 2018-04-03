@@ -8,7 +8,7 @@ This element adds paging capabilities to iron-ajax. It also provides _all_ the i
 To use it, simply wrap an iron-ajax widget with it:
 
     <hot-ajax-paging per-page="10" current-page="{{currentPage}}" pager-data="{{pagerData}}">
-      <iron-ajax auto url="/stores/polymer" handle-as="json" last-response="{{data}}"></iron-ajax>
+      <iron-ajax url="/stores/polymer" handle-as="json" last-response="{{data}}"></iron-ajax>
     </hot-ajax-paging>
 
 Interaction with the iron-ajax widget happens as follows:
@@ -328,7 +328,9 @@ class HotAjaxPaging extends Polymer.Element {
     }
 
     if (typeof this.to === 'undefined') {
+      this._preserveRange = true
       this.to = Number(this.from) + Number(this.perPage) - 1
+      this._preserveRange = false
     }
 
     // Both ranges need to be valid values
