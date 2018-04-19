@@ -148,6 +148,8 @@ class HotAjaxPaging extends Polymer.Element {
     }
   }
 
+  _o (o) { return JSON.stringify(o) }
+
   static get observers () {
     return [
       '_rangeChanged(from,to)',
@@ -352,12 +354,11 @@ class HotAjaxPaging extends Polymer.Element {
     this.request.headers.range = 'items=' + this.from + '-' + this.to
 
     // console.log("AJAX CALL!!!")
-    this.request.generateRequest()
-    if (this.request.url) {
-    }
+    if (this.request && this.request.url) this.request.generateRequest()
   }
 
   _proxyAjaxEvents (e) {
+    this._calculatePagerData(this.currentPage, this.maxShownPages, this.totalPages)
     this.dispatchEvent(new CustomEvent(e.type, { bubbles: false, composed: true }))
   }
 
