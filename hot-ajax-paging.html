@@ -337,7 +337,6 @@ class HotAjaxPaging extends Polymer.Element {
 
     // Both ranges need to be valid values
     if (from === '' || to === '') return
-    // console.log("IN _rangeChanged ENTERED!", from, to);
 
     // Recalculate the page number. Note that it will need to
     // set _preserveRange, or changing page will then affect this very
@@ -353,8 +352,18 @@ class HotAjaxPaging extends Polymer.Element {
     delete this.request.headers.range
     this.request.headers.range = 'items=' + this.from + '-' + this.to
 
-    // console.log("AJAX CALL!!!")
-    if (this.request && this.request.url) this.request.generateRequest()
+    // A request element (iron-ajax) must be found
+    if (this.request) {
+      // No URL? No joy!
+      if (!this.request.url) return
+
+      // If the IRON-AJAX element is set as `auto` and it hasn't yet made
+      // a request, then no joy either.
+      if (this.request.auto && !this.request.lastRequest) return
+
+      // Make the request!
+      this.request.generateRequest()
+    }
   }
 
   _proxyAjaxEvents (e) {
