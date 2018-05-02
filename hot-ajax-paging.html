@@ -352,16 +352,13 @@ class HotAjaxPaging extends Polymer.Element {
     delete this.request.headers.range
     this.request.headers.range = 'items=' + this.from + '-' + this.to
 
-    // A request element (iron-ajax) must be found
-    if (this.request) {
-      // No URL? No joy!
-      if (!this.request.url) return
-
-      // If the IRON-AJAX element is set as `auto` and it hasn't yet made
-      // a request, then no joy either.
-      if (this.request.auto && !this.request.lastRequest) return
-
-      // Make the request!
+    // Make the request!
+    // But only if the request element is there, it has a URL set,
+    // AND it's been run at least once.
+    // This way, the element will only ever respond to user interaction,
+    // and won't interphere with IRON-AJAX's `auto` or any initial loading
+    // in the app
+    if (this.request && this.request.url && this.request.lastRequest) {
       this.request.generateRequest()
     }
   }
